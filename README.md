@@ -72,6 +72,10 @@ sudo apt install quickshell python3
 sudo pacman -S quickshell python
 ```
 
+## GNOME top-bar variant
+
+Not running Quickshell? A GNOME Shell version lives in [`gnome-extension/`](gnome-extension/). It reuses the same collector and shows one provider as a horizontal fill bar with the percentage inside; click to switch Codex/Claude. Install with `./gnome-extension/install.sh`. See [`gnome-extension/README.md`](gnome-extension/README.md).
+
 ## Test the collector
 
 ```sh
