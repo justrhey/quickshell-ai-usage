@@ -57,7 +57,7 @@ MouseArea {
             text: root.provider === "codex" ? "CX" : "CL"
             font.pixelSize: Appearance.font.pixelSize.smaller
             font.weight: Font.DemiBold
-            color: root.provider === "codex" ? Appearance.m3colors.m3success : Appearance.colors.colOnLayer0
+            color: root.provider === "codex" ? "#34C759" : Appearance.colors.colOnLayer0
         }
 
         StyledText {
@@ -76,6 +76,7 @@ MouseArea {
             property real fraction: Math.max(0, Math.min(1, root.percent / 100))
 
             Rectangle {
+                id: liquid
                 anchors.bottom: parent.bottom
                 width: parent.width
                 bottomLeftRadius: 4
@@ -83,8 +84,25 @@ MouseArea {
                 topLeftRadius: bar.fraction >= 0.999 ? 4 : 0
                 topRightRadius: bar.fraction >= 0.999 ? 4 : 0
                 height: parent.height * bar.fraction
-                color: "#FF9500"
+                color: root.provider === "codex" ? "#34C759" : "#FF9500"
+                clip: true
                 Behavior on height { NumberAnimation { duration: 400; easing.type: Easing.OutCubic } }
+
+                Rectangle {
+                    y: -2
+                    width: liquid.width * 1.8
+                    height: 5
+                    radius: height / 2
+                    color: Qt.lighter(liquid.color, 1.25)
+                    opacity: 0.75
+                    NumberAnimation on x {
+                        from: -liquid.width * 0.8
+                        to: 0
+                        duration: 1400
+                        loops: Animation.Infinite
+                        easing.type: Easing.InOutSine
+                    }
+                }
             }
 
             Item {
