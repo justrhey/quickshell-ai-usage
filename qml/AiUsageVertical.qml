@@ -57,7 +57,7 @@ MouseArea {
             text: root.provider === "codex" ? "CX" : "CL"
             font.pixelSize: Appearance.font.pixelSize.smaller
             font.weight: Font.DemiBold
-            color: Appearance.colors.colOnLayer0
+            color: root.provider === "codex" ? Appearance.m3colors.m3success : Appearance.colors.colOnLayer0
         }
 
         StyledText {
