@@ -1,0 +1,8 @@
+{
+  "uuid": "ai-usage@justrhey.github.io",
+  "name": "AI Usage",
+  "description": "Show Codex and Claude usage in the GNOME top panel.",
+  "shell-version": ["45", "46", "47", "48", "49", "50"],
+  "url": "https://github.com/justrhey/quickshell-ai-usage",
+  "version": 1
+}

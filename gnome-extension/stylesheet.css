@@ -1,0 +1,49 @@
+.ai-usage-panel {
+    spacing: 6px;
+}
+
+.ai-usage-provider {
+    font-weight: 700;
+}
+
+.ai-usage-codex {
+    color: #34c759;
+}
+
+.ai-usage-claude {
+    color: #ff9500;
+}
+
+.ai-usage-percent {
+    font-size: 0.9em;
+}
+
+.ai-usage-meter {
+    width: 36px;
+    height: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 4px;
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+.ai-usage-fill {
+    height: 8px;
+    border-radius: 3px;
+}
+
+.ai-usage-fill-codex {
+    background-color: #34c759;
+}
+
+.ai-usage-fill-claude {
+    background-color: #ff9500;
+}
+
+.ai-usage-wave {
+    width: 18px;
+    height: 5px;
+    margin-top: -1px;
+    margin-left: -8px;
+    border-radius: 3px;
+    background-color: rgba(255, 255, 255, 0.48);
+}
