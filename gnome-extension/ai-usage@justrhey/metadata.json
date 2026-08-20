@@ -1,0 +1,7 @@
+{
+    "uuid": "ai-usage@justrhey",
+    "name": "AI Usage",
+    "description": "Shows Codex and Claude usage in the GNOME top bar. Reuses the quickshell-ai-usage collector.",
+    "shell-version": ["45", "46", "47"],
+    "version": 1
+}
