@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import sqlite3
 import tempfile
 import unittest
 from unittest import mock
@@ -41,6 +42,33 @@ class CodexUsageTests(unittest.TestCase):
             self.assertEqual(result["windows"]["5h"]["percent"], 42.5)
             self.assertEqual(result["windows"]["5h"]["resets_at"], 2_000_000_000)
             self.assertEqual(result["windows"]["weekly"]["percent"], 18.0)
+
+
+class OpenCodeUsageTests(unittest.TestCase):
+    def test_reads_daily_tokens_and_reports_exact_reset(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = os.path.join(directory, "opencode.db")
+            connection = sqlite3.connect(database)
+            connection.execute("create table message (time_created integer, data text)")
+            connection.execute(
+                "insert into message values (?, ?)",
+                (2_000_000_000_000, json.dumps({"role": "assistant", "tokens": {"total": 250}})),
+            )
+            connection.execute(
+                "insert into message values (?, ?)",
+                (2_000_000_000_000, json.dumps({"role": "user", "tokens": {"total": 900}})),
+            )
+            connection.commit()
+            connection.close()
+            with mock.patch.object(ai_usage, "OPENCODE_DB", database), \
+                    mock.patch.object(ai_usage, "OPENCODE_DAILY_TOKEN_BUDGET", 1000), \
+                    mock.patch.object(ai_usage.time, "time", return_value=1_999_999_999):
+                result = ai_usage.opencode_usage()
+            self.assertTrue(result["available"])
+            self.assertEqual(result["percent"], 25.0)
+            self.assertEqual(result["window"], "today")
+            self.assertGreater(result["resets_at"], 0)
+            self.assertEqual(result["windows"]["today"]["percent"], 25.0)
 
 
 if __name__ == "__main__":

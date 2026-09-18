@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""Emit Codex and Claude usage as JSON for the Quickshell widgets."""
+"""Emit Codex, Claude and OpenCode usage as JSON for the desktop widgets."""
 
 import glob
 import json
 import os
+import sqlite3
 import time
 import urllib.request
-from datetime import datetime
+from datetime import date, datetime, timedelta
 
 HOME = os.path.expanduser("~")
 CLAUDE_CREDS = os.path.join(HOME, ".claude", ".credentials.json")
+OPENCODE_DB = os.path.join(HOME, ".local", "share", "opencode", "opencode.db")
+OPENCODE_DAILY_TOKEN_BUDGET = int(os.environ.get("OPENCODE_DAILY_TOKEN_BUDGET", 50_000_000))
 CACHE_FILE = os.path.join(
     os.environ.get("XDG_CACHE_HOME", os.path.join(HOME, ".cache")),
     "quickshell-ai-usage.json",
@@ -128,6 +131,17 @@ def _cache_write(data):
         pass
 
 
+def _windows_expired(windows, now):
+    for window in windows.values():
+        try:
+            resets_at = int(window.get("resets_at", 0) or 0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+        if 0 < resets_at <= now:
+            return True
+    return False
+
+
 def _claude_in_use(now):
     pattern = os.path.join(HOME, ".claude", "projects", "**", "*.jsonl")
     for path in glob.glob(pattern, recursive=True):
@@ -181,7 +195,10 @@ def _claude_fetch():
 def claude_usage():
     now = time.time()
     cache = _cache_read()
-    if _claude_in_use(now) or "claude" not in cache:
+    current = cache.get("claude", {})
+    windows = current.get("windows", {}) if isinstance(current, dict) else {}
+    expired = _windows_expired(windows, now)
+    if _claude_in_use(now) or not current or not windows or expired:
         fresh = _claude_fetch()
         if fresh:
             cache["claude"] = fresh
@@ -190,8 +207,41 @@ def claude_usage():
     return cache.get("claude", {"available": False})
 
 
+def opencode_usage():
+    """Return today's local OpenCode token count as a configurable budget percentage."""
+    try:
+        start = datetime.combine(date.today(), datetime.min.time()).timestamp() * 1000
+        connection = sqlite3.connect(f"file:{OPENCODE_DB}?mode=ro", uri=True, timeout=2)
+        try:
+            rows = connection.execute(
+                "select data from message where cast(time_created as integer) >= ?",
+                (start,),
+            )
+            total = 0
+            for (data,) in rows:
+                event = json.loads(data)
+                if event.get("role") == "assistant":
+                    total += int((event.get("tokens") or {}).get("total", 0))
+        finally:
+            connection.close()
+        midnight = datetime.combine(date.today() + timedelta(days=1), datetime.min.time()).timestamp()
+        window = {
+            "percent": round(total / OPENCODE_DAILY_TOKEN_BUDGET * 100, 1),
+            "window": "today",
+            "reset": _human_reset(int(midnight - time.time())),
+            "resets_at": int(midnight),
+        }
+        return {"available": True, **window, "windows": {"today": window}}
+    except (OSError, sqlite3.Error, ValueError):
+        return {"available": False}
+
+
 def main():
-    print(json.dumps({"codex": codex_usage(), "claude": claude_usage()}))
+    print(json.dumps({
+        "codex": codex_usage(),
+        "claude": claude_usage(),
+        "opencode": opencode_usage(),
+    }))
 
 
 if __name__ == "__main__":
