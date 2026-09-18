@@ -27,14 +27,20 @@ class CodexUsageTests(unittest.TestCase):
             session_dir = os.path.join(home, ".codex", "sessions")
             os.makedirs(session_dir)
             session = os.path.join(session_dir, "session.jsonl")
-            event = {"rate_limits": {"primary": {"used_percent": 42.5, "window_minutes": 300}}}
+            event = {"rate_limits": {
+                "primary": {"used_percent": 42.5, "window_minutes": 300, "resets_at": 2_000_000_000},
+                "secondary": {"used_percent": 18, "window_minutes": 10080, "resets_at": 2_000_600_000},
+            }}
             with open(session, "w", encoding="utf-8") as handle:
                 handle.write(json.dumps(event) + "\n")
             with mock.patch.object(ai_usage, "HOME", home):
                 result = ai_usage.codex_usage()
             self.assertTrue(result["available"])
-            self.assertEqual(result["percent"], 42.5)
-            self.assertEqual(result["window"], "5h")
+            self.assertEqual(result["percent"], 18.0)
+            self.assertEqual(result["window"], "weekly")
+            self.assertEqual(result["windows"]["5h"]["percent"], 42.5)
+            self.assertEqual(result["windows"]["5h"]["resets_at"], 2_000_000_000)
+            self.assertEqual(result["windows"]["weekly"]["percent"], 18.0)
 
 
 if __name__ == "__main__":

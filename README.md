@@ -12,6 +12,11 @@ A compact Codex and Claude usage indicator for Quickshell and GNOME Shell. Both 
 
 The collector is distribution-independent. It reads Codex rate-limit events from `~/.codex/sessions` and Claude OAuth usage using `~/.claude/.credentials.json`. It never prints access tokens.
 
+Each available provider keeps the compact top-level `percent`, `window`, and
+`reset` fields for existing widgets. The `windows` object additionally exposes
+the five-hour and weekly percentages with exact `resets_at` timestamps for
+clients that show both limits, such as the 220 sidebar.
+
 ## Install
 
 ### Quickshell

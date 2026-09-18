@@ -50,6 +50,38 @@ def _find_windows(value, output):
             _find_windows(child, output)
 
 
+def _usage_result(windows, now, preferred=None, highest=False):
+    results = {}
+    for window in windows:
+        try:
+            minutes = int(window.get("window_minutes", 0))
+            label = _human_window(minutes)
+            if not label:
+                continue
+            percent = float(window.get("used_percent", 0))
+            resets_at = int(window.get("resets_at", 0) or 0)
+            reset = ""
+            if resets_at:
+                if now >= resets_at:
+                    percent = 0.0
+                    resets_at = 0
+                else:
+                    reset = _human_reset(int(resets_at - now))
+            results[label] = {
+                "percent": round(percent, 1),
+                "window": label,
+                "reset": reset,
+                "resets_at": resets_at,
+            }
+        except (TypeError, ValueError):
+            continue
+    if not results:
+        return None
+    chosen = max(results.values(), key=lambda item: item["percent"]) if highest else results.get(preferred)
+    chosen = chosen or next(iter(results.values()))
+    return {"available": True, **chosen, "windows": results}
+
+
 def codex_usage():
     files = glob.glob(os.path.join(HOME, ".codex", "sessions", "**", "*.jsonl"), recursive=True)
     files.sort(key=os.path.getmtime, reverse=True)
@@ -68,22 +100,12 @@ def codex_usage():
                     windows = []
                     _find_windows(event, windows)
                     if windows:
-                        latest = windows[-1]
+                        latest = windows
             if latest:
-                percent = float(latest.get("used_percent", 0))
-                resets_at = int(latest.get("resets_at", 0) or 0)
-                reset = ""
-                if resets_at:
-                    if now >= resets_at:
-                        percent = 0.0
-                    else:
-                        reset = _human_reset(int(resets_at - now))
-                return {
-                    "available": True,
-                    "percent": round(percent, 1),
-                    "window": _human_window(int(latest.get("window_minutes", 0))),
-                    "reset": reset,
-                }
+                preferred = _human_window(int(latest[-1].get("window_minutes", 0)))
+                result = _usage_result(latest, now, preferred=preferred)
+                if result:
+                    return result
         except OSError:
             continue
     return {"available": False}
@@ -136,18 +158,22 @@ def _claude_fetch():
         with urllib.request.urlopen(request, timeout=8) as response:
             data = json.load(response)
         windows = []
-        for key, label in (("five_hour", "5h"), ("seven_day", "weekly")):
+        for key, minutes in (("five_hour", 300), ("seven_day", 10080)):
             window = data.get(key)
             if isinstance(window, dict) and window.get("utilization") is not None:
-                windows.append((float(window["utilization"]), window.get("resets_at"), label))
+                resets_at = 0
+                if window.get("resets_at"):
+                    resets_at = int(datetime.fromisoformat(
+                        window["resets_at"].replace("Z", "+00:00")
+                    ).timestamp())
+                windows.append({
+                    "used_percent": window["utilization"],
+                    "window_minutes": minutes,
+                    "resets_at": resets_at,
+                })
         if not windows:
             return None
-        percent, resets_at, label = max(windows, key=lambda item: item[0])
-        reset = ""
-        if resets_at:
-            parsed = datetime.fromisoformat(resets_at.replace("Z", "+00:00"))
-            reset = _human_reset(int(parsed.timestamp() - time.time()))
-        return {"available": True, "percent": round(percent, 1), "window": label, "reset": reset}
+        return _usage_result(windows, time.time(), highest=True)
     except (OSError, ValueError, urllib.error.URLError):
         return None
 
