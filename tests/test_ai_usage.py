@@ -37,8 +37,8 @@ class CodexUsageTests(unittest.TestCase):
             with mock.patch.object(ai_usage, "HOME", home):
                 result = ai_usage.codex_usage()
             self.assertTrue(result["available"])
-            self.assertEqual(result["percent"], 18.0)
-            self.assertEqual(result["window"], "weekly")
+            self.assertEqual(result["percent"], 42.5)
+            self.assertEqual(result["window"], "5h")
             self.assertEqual(result["windows"]["5h"]["percent"], 42.5)
             self.assertEqual(result["windows"]["5h"]["resets_at"], 2_000_000_000)
             self.assertEqual(result["windows"]["weekly"]["percent"], 18.0)

@@ -30,6 +30,8 @@ class GnomeExtensionTests(unittest.TestCase):
         self.assertIn("OpenCode", metadata["description"])
         self.assertIn("new St.Icon", source)
         self.assertIn("PROVIDER_ORDER = ['codex', 'claude', 'opencode']", source)
+        self.assertIn("function displayUsage(provider, usage)", source)
+        self.assertIn("provider === 'opencode' ? 'today' : '5h'", source)
         for name in ("codex", "claude", "opencode"):
             self.assertTrue(os.path.isfile(os.path.join(
                 INSTALLABLE_DIR, "icons", f"{name}-symbolic.svg"

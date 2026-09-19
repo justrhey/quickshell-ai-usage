@@ -40,6 +40,13 @@ function levelColor(frac) {
     return [0.90, 0.27, 0.22];
 }
 
+function displayUsage(provider, usage) {
+    if (!usage?.available)
+        return usage;
+    const preferredWindow = provider === 'opencode' ? 'today' : '5h';
+    return usage.windows?.[preferredWindow] ?? usage;
+}
+
 const AiUsageIndicator = GObject.registerClass(
 class AiUsageIndicator extends PanelMenu.Button {
     _init(extensionPath) {
@@ -170,7 +177,7 @@ class AiUsageIndicator extends PanelMenu.Button {
             return;
         const lines = [];
         for (const key of PROVIDER_ORDER) {
-            const u = this._data ? this._data[key] : null;
+            const u = displayUsage(key, this._data ? this._data[key] : null);
             const name = PROVIDERS[key].name;
             const marker = key === this._provider ? '● ' : '   ';
             if (u && u.available) {
@@ -219,7 +226,7 @@ class AiUsageIndicator extends PanelMenu.Button {
         if (!this._label)
             return;
         const provider = PROVIDERS[this._provider];
-        const u = this._data ? this._data[this._provider] : null;
+        const u = displayUsage(this._provider, this._data ? this._data[this._provider] : null);
         this._icon.gicon = this._icons[this._provider];
         if (u && u.available) {
             const pct = Math.round(u.percent);

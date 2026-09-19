@@ -5,6 +5,7 @@ instead of a Quickshell bar. It reuses the same `scripts/ai_usage.py` collector
 and renders a single provider as a horizontal fill bar with the percentage inside.
 
 - Shows one provider at a time (Codex, Claude, or OpenCode) with its icon.
+- Uses the 5-hour window for the Codex and Claude pill; longer limits remain available to other detailed views.
 - **Click the bar to switch** providers; the choice is remembered across restarts
   (stored in `$XDG_CACHE_HOME/ai-usage-provider`).
 - Fill grows with usage and is color-coded: green < 70%, orange < 90%, red ≥ 90%.

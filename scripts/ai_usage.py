@@ -105,8 +105,7 @@ def codex_usage():
                     if windows:
                         latest = windows
             if latest:
-                preferred = _human_window(int(latest[-1].get("window_minutes", 0)))
-                result = _usage_result(latest, now, preferred=preferred)
+                result = _usage_result(latest, now, preferred="5h")
                 if result:
                     return result
         except OSError:
@@ -187,7 +186,7 @@ def _claude_fetch():
                 })
         if not windows:
             return None
-        return _usage_result(windows, time.time(), highest=True)
+        return _usage_result(windows, time.time(), preferred="5h")
     except (OSError, ValueError, urllib.error.URLError):
         return None
 
