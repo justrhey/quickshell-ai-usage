@@ -14,7 +14,12 @@ const INTERVAL_SECONDS = 60;
 const BAR_WIDTH = 84;
 const BAR_HEIGHT = 22;
 
-const TAGS = {codex: 'CX', claude: 'CL'};
+const PROVIDER_ORDER = ['codex', 'claude', 'opencode'];
+const PROVIDERS = {
+    codex: {name: 'Codex', icon: 'codex-symbolic.svg'},
+    claude: {name: 'Claude', icon: 'claude-symbolic.svg'},
+    opencode: {name: 'OpenCode', icon: 'opencode-symbolic.svg'},
+};
 
 function roundRect(cr, x, y, w, h, r) {
     r = Math.min(r, h / 2, w / 2);
@@ -37,13 +42,20 @@ function levelColor(frac) {
 
 const AiUsageIndicator = GObject.registerClass(
 class AiUsageIndicator extends PanelMenu.Button {
-    _init() {
+    _init(extensionPath) {
         super._init(0.0, 'AI Usage', false);
 
         this._provider = this._loadProvider();
         this._data = {};
         this._frac = 0;
         this._color = levelColor(0);
+        this._icons = {};
+        for (const [key, provider] of Object.entries(PROVIDERS)) {
+            const file = Gio.File.new_for_path(GLib.build_filenamev([
+                extensionPath, 'icons', provider.icon,
+            ]));
+            this._icons[key] = new Gio.FileIcon({file});
+        }
 
         this._area = new St.DrawingArea({
             width: BAR_WIDTH,
@@ -52,6 +64,13 @@ class AiUsageIndicator extends PanelMenu.Button {
         });
         this._area.connect('repaint', this._onRepaint.bind(this));
 
+        this._icon = new St.Icon({
+            gicon: this._icons[this._provider],
+            icon_size: 13,
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'color: white;',
+        });
+
         this._label = new St.Label({
             text: '…',
             x_align: Clutter.ActorAlign.CENTER,
@@ -59,21 +78,37 @@ class AiUsageIndicator extends PanelMenu.Button {
             style: 'font-size: 11px; font-weight: bold; color: white;',
         });
 
+        const overlay = new St.BoxLayout({
+            x_align: Clutter.ActorAlign.CENTER,
+            y_align: Clutter.ActorAlign.CENTER,
+            style: 'spacing: 4px;',
+        });
+        overlay.add_child(this._icon);
+        overlay.add_child(this._label);
+
         const box = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
             y_align: Clutter.ActorAlign.CENTER,
             style: 'margin: 0 4px;',
         });
         box.add_child(this._area);
-        box.add_child(this._label);
+        box.add_child(overlay);
         this.add_child(box);
+
+        this.connect('notify::hover', this._onHover.bind(this));
+        this.connect('destroy', () => {
+            if (this._tooltip) {
+                this._tooltip.destroy();
+                this._tooltip = null;
+            }
+        });
     }
 
     // Click toggles provider instead of opening a menu.
     vfunc_event(event) {
         if (event.type() === Clutter.EventType.BUTTON_PRESS ||
             event.type() === Clutter.EventType.TOUCH_BEGIN) {
-            this._provider = this._provider === 'codex' ? 'claude' : 'codex';
+            this._provider = this._nextProvider();
             this._saveProvider(this._provider);
             this._render();       // instant switch using cached data
             this.refresh();       // and pull fresh numbers
@@ -82,12 +117,16 @@ class AiUsageIndicator extends PanelMenu.Button {
         return Clutter.EVENT_PROPAGATE;
     }
 
+    _nextProvider() {
+        return PROVIDER_ORDER[(PROVIDER_ORDER.indexOf(this._provider) + 1) % PROVIDER_ORDER.length];
+    }
+
     _loadProvider() {
         try {
             const [ok, bytes] = GLib.file_get_contents(STATE_FILE);
             if (ok) {
                 const v = new TextDecoder().decode(bytes).trim();
-                if (v === 'codex' || v === 'claude')
+                if (v in PROVIDERS)
                     return v;
             }
         } catch (e) {}
@@ -98,6 +137,56 @@ class AiUsageIndicator extends PanelMenu.Button {
         try {
             GLib.file_set_contents(STATE_FILE, v);
         } catch (e) {}
+    }
+
+    _ensureTooltip() {
+        if (this._tooltip)
+            return;
+        this._tooltip = new St.Label({style_class: 'dash-label'});
+        this._tooltip.hide();
+        Main.layoutManager.addChrome(this._tooltip);
+    }
+
+    // Hover shows a tooltip with each limit's usage and when it comes back.
+    _onHover() {
+        this._ensureTooltip();
+        if (!this.hover) {
+            this._tooltip.hide();
+            return;
+        }
+        this._updateTooltip();
+        this._tooltip.show();
+
+        const natWidth = this._tooltip.get_preferred_width(-1)[1];
+        const [x, y] = this.get_transformed_position();
+        const monitor = Main.layoutManager.primaryMonitor;
+        let tx = Math.round(x + this.width / 2 - natWidth / 2);
+        tx = Math.max(monitor.x + 4, Math.min(tx, monitor.x + monitor.width - natWidth - 4));
+        this._tooltip.set_position(tx, Math.round(y + this.height + 4));
+    }
+
+    _updateTooltip() {
+        if (!this._tooltip)
+            return;
+        const lines = [];
+        for (const key of PROVIDER_ORDER) {
+            const u = this._data ? this._data[key] : null;
+            const name = PROVIDERS[key].name;
+            const marker = key === this._provider ? '● ' : '   ';
+            if (u && u.available) {
+                const pct = Math.round(u.percent);
+                const win = u.window ? ` (${u.window})` : '';
+                let line = `${marker}${name}: ${pct}%${win}`;
+                if (pct >= 100)
+                    line += ' — limit reached';
+                if (u.reset)
+                    line += `, ${u.reset}`;
+                lines.push(line);
+            } else {
+                lines.push(`${marker}${name}: n/a`);
+            }
+        }
+        this._tooltip.text = lines.join('\n');
     }
 
     refresh() {
@@ -129,19 +218,25 @@ class AiUsageIndicator extends PanelMenu.Button {
     _render() {
         if (!this._label)
             return;
-        const tag = TAGS[this._provider];
+        const provider = PROVIDERS[this._provider];
         const u = this._data ? this._data[this._provider] : null;
+        this._icon.gicon = this._icons[this._provider];
         if (u && u.available) {
             const pct = Math.round(u.percent);
             this._frac = Math.max(0, Math.min(1, u.percent / 100));
             this._color = levelColor(this._frac);
-            this._label.text = `${tag} ${pct}%`;
+            this._label.text = pct >= 100 ? 'FULL' : `${pct}%`;
         } else {
             this._frac = 0;
             this._color = levelColor(0);
-            this._label.text = `${tag} —`;
+            this._label.text = '—';
         }
+        this.accessible_name = u && u.available
+            ? `${provider.name} usage ${Math.round(u.percent)} percent`
+            : `${provider.name} usage unavailable`;
         this._area.queue_repaint();
+        if (this._tooltip && this._tooltip.visible)
+            this._updateTooltip();
     }
 
     _onRepaint(area) {
@@ -171,7 +266,7 @@ class AiUsageIndicator extends PanelMenu.Button {
 
 export default class AiUsageExtension extends Extension {
     enable() {
-        this._indicator = new AiUsageIndicator();
+        this._indicator = new AiUsageIndicator(this.path);
         this._indicator._cancellable = new Gio.Cancellable();
         Main.panel.addToStatusArea(this.uuid, this._indicator);
 

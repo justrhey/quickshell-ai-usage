@@ -4,7 +4,7 @@ A GNOME Shell version of the widget for desktops that run GNOME (X11 or Wayland)
 instead of a Quickshell bar. It reuses the same `scripts/ai_usage.py` collector
 and renders a single provider as a horizontal fill bar with the percentage inside.
 
-- Shows one provider at a time (Codex or Claude).
+- Shows one provider at a time (Codex, Claude, or OpenCode) with its icon.
 - **Click the bar to switch** providers; the choice is remembered across restarts
   (stored in `$XDG_CACHE_HOME/ai-usage-provider`).
 - Fill grows with usage and is color-coded: green < 70%, orange < 90%, red ≥ 90%.

@@ -16,6 +16,9 @@ fi
 install -Dm755 "$repo_dir/scripts/ai_usage.py" "$bin_dir/ai_usage.py"
 install -Dm644 "$script_dir/$uuid/metadata.json" "$ext_dir/metadata.json"
 install -Dm644 "$script_dir/$uuid/extension.js" "$ext_dir/extension.js"
+for icon in "$script_dir/$uuid/icons/"*.svg; do
+    install -Dm644 "$icon" "$ext_dir/icons/$(basename "$icon")"
+done
 
 printf 'Installed collector to %s\n' "$bin_dir/ai_usage.py"
 printf 'Installed extension to %s\n' "$ext_dir"
